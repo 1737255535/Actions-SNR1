@@ -25,3 +25,11 @@ rm -rf /tmp/clash.tar.gz >/dev/null 2>&1
 sed -i '/myddns_ipv4/,$d' feeds/packages/net/ddns-scripts/files/etc/config/ddns
 ##-----------------Manually set CPU frequency for MT7981B-----------------
 sed -i '/"mediatek"\/\*|\"mvebu"\/\*/{n; s/.*/\tcpu_freq="1.3GHz" ;;/}' package/emortal/autocore/files/generic/cpuinfo
+##-----------------Patch block.mk: restore missing dm-mod.ko for kmod-dm build-----------------
+# External repo (immortalwrt-mt798x-hanwckf) has CONFIG_BLK_DEV_DM=y (dm builtin) but dropped
+# dm-mod.ko from KernelPackage/dm FILES, so when CONFIG_PACKAGE_kmod-dm=y is selected the
+# packer fails with 'dm-mod.ko is missing'. Restore upstream behavior:
+sed -i 's/\tCONFIG_BLK_DEV_DM=y/\tCONFIG_BLK_DEV_DM=m/' package/kernel/linux/modules/block.mk
+sed -i 's@\$(LINUX_DIR)/drivers/md/dm-crypt.ko@\$(LINUX_DIR)/drivers/md/dm-mod.ko \n    \$(LINUX_DIR)/drivers/md/dm-crypt.ko@' package/kernel/linux/modules/block.mk
+sed -i 's@AutoLoad,30,dm-log dm-region-hash dm-mirror dm-crypt@AutoLoad,30,dm-mod dm-log dm-region-hash dm-mirror dm-crypt@' package/kernel/linux/modules/block.mk
+grep -n 'dm-mod' package/kernel/linux/modules/block.mk || true
