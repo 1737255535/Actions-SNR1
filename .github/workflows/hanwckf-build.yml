@@ -259,7 +259,7 @@ jobs:
 
     - name: SSH链接管理
       uses: P3TERX/ssh2actions@v1.0.0
-      if: (${{ github.event.inputs.ssh        || github.event.client_payload.ssh        || 'false' }} == 'true' && ${{ github.event.inputs.ssh        || github.event.client_payload.ssh        || 'false' }} != 'false') || contains(github.event.action, 'ssh')
+      if: ${{ secrets.TELEGRAM_CHAT_ID != '' && secrets.TELEGRAM_BOT_TOKEN != '' && ((${{ github.event.inputs.ssh || github.event.client_payload.ssh || 'false' }} == 'true') || contains(github.event.action, 'ssh')) }}
       env:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
