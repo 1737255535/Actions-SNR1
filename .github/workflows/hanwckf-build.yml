@@ -66,7 +66,7 @@ on:
 env:
   ###############手动修改##############
   OPENWRT_NAME: hanwckf
-  UPLOAD_TAG_NAME: ${{ github.event.inputs.MODEL }}
+  UPLOAD_TAG_NAME: ${{ github.event.inputs.MODEL      || github.event.client_payload.MODEL      || 'philips-hy3000' }}
   REPO_URL: https://github.com/Yuzhii0718/immortalwrt-mt798x-hanwckf
   REPO_BRANCH: openwrt-21.02
   FEEDS_CONF: hanwckf-diy/feeds.conf.default
@@ -97,7 +97,7 @@ jobs:
       uses: actions/checkout@main
 
     - name: 清理磁盘空间(local-Ubuntu)
-      if: github.event.inputs.SAVE_DISK == 'true'
+      if: ${{ github.event.inputs.SAVE_DISK  || github.event.client_payload.SAVE_DISK  || 'true' }} == 'true'
       run: |
         sudo rm -rf /etc/apt/sources.list.d/* /usr/share/dotnet /usr/local/lib/android /opt/ghc
         sudo rm -rf $HOME/.cargo/registry $HOME/.cargo/git
@@ -123,7 +123,7 @@ jobs:
         sudo chown $USER:$GROUPS /workdir
 
     - name: 清理磁盘空间(plugin-Ubuntu)
-      if: github.event.inputs.SAVE_DISK == 'true'
+      if: ${{ github.event.inputs.SAVE_DISK  || github.event.client_payload.SAVE_DISK  || 'true' }} == 'true'
       uses: jlumbroso/free-disk-space@main
       with:
         # this might remove tools that are actually needed,
@@ -159,7 +159,7 @@ jobs:
         ./scripts/feeds install -a
 
     - name: DIY_P2_SH
-      if: github.event.inputs.OPENCLASH == 'true'
+      if: ${{ github.event.inputs.OPENCLASH  || github.event.client_payload.OPENCLASH  || 'true' }} == 'true'
       run: |
         chmod +x $DIY_P2_SH
         cd openwrt
@@ -181,14 +181,14 @@ jobs:
         # 追加自定义config
         cat $GITHUB_WORKSPACE/$CONFIG_FILE >> .config
         # 根据model对config文件进行修改，以适配不同设备
-        if [ "${{ github.event.inputs.MODEL }}" == "philips-hy3000" ]; then
+        if [ "${{ github.event.inputs.MODEL      || github.event.client_payload.MODEL      || 'philips-hy3000' }}" == "philips-hy3000" ]; then
             echo 'CONFIG_TARGET_PROFILE="DEVICE_philips_hy3000"' >> .config
             echo "CONFIG_TARGET_mediatek_mt7981_DEVICE_philips_hy3000=y" >> .config
             echo 'CONFIG_TARGET_DEVICE_PACKAGES_mediatek_mt7981_DEVICE_philips_hy3000=""' >> .config
             echo "======================================================================"
             echo "Device Model: Philips HY3000"
             echo "======================================================================"
-        elif [ "${{ github.event.inputs.MODEL }}" == "sn-r1" ]; then
+        elif [ "${{ github.event.inputs.MODEL      || github.event.client_payload.MODEL      || 'philips-hy3000' }}" == "sn-r1" ]; then
             echo 'CONFIG_TARGET_PROFILE="DEVICE_sn_r1"' >> .config
             echo "CONFIG_TARGET_mediatek_mt7981_DEVICE_sn_r1=y" >> .config
             echo 'CONFIG_TARGET_DEVICE_PACKAGES_mediatek_mt7981_DEVICE_sn_r1=""' >> .config
@@ -204,7 +204,7 @@ jobs:
     - name: 设置LAN IP地址（路由器登录地址）
       run: |
         cd openwrt
-        SET_IP=${{ github.event.inputs.LAN_IP }}
+        SET_IP=${{ github.event.inputs.LAN_IP     || github.event.client_payload.LAN_IP     || '192.168.99.1' }}
         if [[ $SET_IP =~ ^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$ ]]; then
             #修改immortalwrt.lan关联IP
             sed -i "s/192\.168\.[0-9]*\.[0-9]*/$SET_IP/g" $(find feeds/luci/modules/luci-mod-system -type f -name "flash.js")
@@ -220,7 +220,7 @@ jobs:
         fi
 
     - name: 设置eMMC频率为26MHz
-      if: github.event.inputs.EMMC_SPEED == 'false'
+      if: ${{ github.event.inputs.EMMC_SPEED || github.event.client_payload.EMMC_SPEED || 'true' }} == 'false'
       run: |
         cd openwrt
         if grep -q 'cap-mmc-highspeed' "${{ env.HY3000_DTS_FILE }}"; then
@@ -236,14 +236,14 @@ jobs:
                 sed -i -e 's/max-frequency = <52000000>; /max-frequency = <26000000>;/' "${{ env.R1_DTS_FILE }}"
         fi
     - name: 添加USB包
-      if: github.event.inputs.USB == 'true'
+      if: ${{ github.event.inputs.USB        || github.event.client_payload.USB        || 'false' }} == 'true'
       run: |
         cd openwrt
         cat $GITHUB_WORKSPACE/$USB_CONFIG_FILE >> .config
         make defconfig
 
     - name: 使用luci-app-mtk无线配置
-      if: github.event.inputs.APP_MTK == 'true'
+      if: ${{ github.event.inputs.APP_MTK    || github.event.client_payload.APP_MTK    || 'false' }} == 'true'
       run: |
         cd openwrt
         sed -i 's/CONFIG_PACKAGE_luci-app-mtwifi-cfg=y/CONFIG_PACKAGE_luci-app-mtk=y/g' .config
@@ -252,14 +252,14 @@ jobs:
         sed -i 's/CONFIG_PACKAGE_lua-cjson=y/CONFIG_WIFI_NORMAL_SETTING=y/g' .config
 
     - name: 不编译dockerman
-      if: github.event.inputs.DOCKERMAN == 'false'
+      if: ${{ github.event.inputs.DOCKERMAN  || github.event.client_payload.DOCKERMAN  || 'true' }} == 'false'
       run: |
         cd openwrt
         sed -i '/CONFIG_PACKAGE_luci-app-dockerman=y/d' .config
 
     - name: SSH链接管理
       uses: P3TERX/ssh2actions@v1.0.0
-      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
+      if: (${{ github.event.inputs.ssh        || github.event.client_payload.ssh        || 'false' }} == 'true' && ${{ github.event.inputs.ssh        || github.event.client_payload.ssh        || 'false' }} != 'false') || contains(github.event.action, 'ssh')
       env:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
@@ -328,7 +328,7 @@ jobs:
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
         touch release.txt
-        echo "- 机型选择：${{ github.event.inputs.MODEL }}" >> release.txt
+        echo "- 机型选择：${{ github.event.inputs.MODEL      || github.event.client_payload.MODEL      || 'philips-hy3000' }}" >> release.txt
         echo "- 使用源码：${{ env.REPO_URL }}" >> release.txt
         echo "- 使用分支：${{ env.REPO_BRANCH }}" >> release.txt
         echo "- 登录地址：${{ env.IP_ADDR }}" >> release.txt
@@ -342,17 +342,17 @@ jobs:
         else
                 echo "- 未编译luci-app-dockerman" >> release.txt
         fi
-        if [[ "${{ github.event.inputs.EMMC_SPEED }}" == 'true' ]]; then
+        if [[ "${{ github.event.inputs.EMMC_SPEED || github.event.client_payload.EMMC_SPEED || 'true' }}" == 'true' ]]; then
                 echo "- eMMC使用highspeed" >> release.txt
         else
                 echo "- eMMC使用26MHz" >> release.txt
         fi
-        if [[ "${{ github.event.inputs.USB }}" == 'false' ]]; then
+        if [[ "${{ github.event.inputs.USB        || github.event.client_payload.USB        || 'false' }}" == 'false' ]]; then
                 echo "- 未添加USB相关包" >> release.txt
         else
                 echo "- 已添加USB相关包" >> release.txt
         fi
-        if [[ "${{ github.event.inputs.OPENCLASH }}" == 'true' ]]; then
+        if [[ "${{ github.event.inputs.OPENCLASH  || github.event.client_payload.OPENCLASH  || 'true' }}" == 'true' ]]; then
                 echo "- 已编译科学上网" >> release.txt
         else
                 echo "- 未编译科学上网" >> release.txt
